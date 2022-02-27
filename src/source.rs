@@ -24,13 +24,15 @@ impl<T: Sample, I: Iterator<Item = T>> Source for IterSource<I> {
 unsafe impl<T, I: Iterator<Item = T>> Send for IterSource<I> {}
 
 
-
 pub(crate) struct MonoFrameSource<'a, Chan: Channel> {
-    frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>
+    frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>,
+    limit_count: usize
 }
 
 impl<'a, Chan: Channel + ChanSampleFormat> MonoFrameSource<'a, Chan> {
-    pub fn new(frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>) -> Self { MonoFrameSource { frame_iter: frame_iter } }
+    pub fn new(frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>, limit_count: usize) -> Self { 
+        MonoFrameSource { frame_iter: frame_iter, limit_count: limit_count } 
+    }
 
     pub fn collect_clone(self) -> IterSource<<Vec<f32> as IntoIterator>::IntoIter> {
         IterSource { i: self.collect::<Vec<_>>().into_iter() }
@@ -39,10 +41,15 @@ impl<'a, Chan: Channel + ChanSampleFormat> MonoFrameSource<'a, Chan> {
 
 impl<'a, Chan: Channel + ChanSampleFormat> Iterator for MonoFrameSource<'a, Chan> {
     type Item = f32;
-    fn next(&mut self) -> Option<Self::Item> { 
-        self.frame_iter.next()
-            .map(MonoFrameSmaple::from_frame)
-            .map(|x| x.into_f32())
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.limit_count == 0 {
+            None
+        } else {
+            self.limit_count -= 1;
+            self.frame_iter.next()
+                .map(MonoFrameSmaple::from_frame)
+                .map(|x| x.into_f32())
+        }
     }
 }
 

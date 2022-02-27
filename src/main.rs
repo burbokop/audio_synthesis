@@ -63,9 +63,20 @@ impl<'a, Chan: Channel + ChanSampleFormat> Sink<Chan, 1> for MySink<'a> {
     fn len(&self) -> usize { 48_000 * 10 }
 
     fn sink_with(&mut self, iter: &mut dyn Iterator<Item = Frame<Chan, 1>>) {
-        let mf = MonoFrameSource::new(iter).collect_clone();
+        println!("sink_with0");
 
-        self.stream.play_raw(mf);
+        let sink = rodio::Sink::try_new(self.stream).unwrap();
+
+
+        let mf = MonoFrameSource::new(iter, 48_000 * 10).collect_clone();
+        println!("sink_with2");
+
+        sink.append(mf);
+
+        sink.sleep_until_end();
+
+        //self.stream.play_raw(mf).unwrap();
+        println!("sink_with3");
     }
 }
 
@@ -108,12 +119,14 @@ fn main() {
     let sink = MySink::new(&stream_handle);
     //let mut audio = Audio::<Ch16, 2>::with_silence(48_000, 48_000 * 5);
    
+
     //audio.sink()
 
     // Synthesize 5 seconds of audio
     println!("stream start");
     synth.stream::<Ch16, _>(sink);
     println!("stream end");
+
 
     
     //sink.sleep_until_end();

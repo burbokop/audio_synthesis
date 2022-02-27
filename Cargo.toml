@@ -1,0 +1,12 @@
+[package]
+name = "audio"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+twang = "0.8.0"
+fon = "0.6.0"
+libm = "0.2.2"
+rodio = "0.15.0"

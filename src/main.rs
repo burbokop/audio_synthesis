@@ -1,6 +1,10 @@
+mod source;
+mod sample;
+
 use std::fs::File;
 use std::io::BufReader;
 use std::time::Duration;
+use rodio::cpal::Sample;
 use rodio::{Decoder, OutputStream};
 use rodio::source::{SineWave, Source};
 
@@ -13,10 +17,13 @@ use rodio::source::{SineWave, Source};
 
 use fon::chan::{Ch16, Channel};
 use fon::{Audio, Frame, Sink};
+use sample::ChanSampleFormat;
 use twang::noise::White;
 use twang::ops::Gain;
 use twang::osc::Sine;
 use twang::Synth;
+
+use crate::source::MonoFrameSource;
 
 /// First ten harmonic volumes of a piano sample (sounds like electric piano).
 const HARMONICS: [f32; 10] = [
@@ -50,17 +57,15 @@ impl std::fmt::Debug for MySink<'_> {
 }
 
 
-impl<Chan: Channel, const CH: usize> Sink<Chan, CH> for MySink<'_> {
+impl<'a, Chan: Channel + ChanSampleFormat> Sink<Chan, 1> for MySink<'a> {
     fn sample_rate(&self) -> std::num::NonZeroU32 { std::num::NonZeroU32::new(48_000).unwrap() }
 
     fn len(&self) -> usize { 48_000 * 10 }
 
-    fn sink_with(&mut self, iter: &mut dyn Iterator<Item = Frame<Chan, CH>>) {
-        self.stream.play_raw(iter);
-        println!("sink_with");
-        iter.for_each(|f| {
-            println!("frame: {:?}", f);
-        })
+    fn sink_with(&mut self, iter: &mut dyn Iterator<Item = Frame<Chan, 1>>) {
+        let mf = MonoFrameSource::new(iter).collect_clone();
+
+        self.stream.play_raw(mf);
     }
 }
 
@@ -77,7 +82,7 @@ fn main() {
         }
     }
     // Build synthesis algorithm
-    let mut synth = Synth::new(proc, |proc, mut frame: Frame<_, 2>| {
+    let mut synth = Synth::new(proc, |proc, mut frame: Frame<_, 1>| {
         for (s, pitch) in proc.piano.iter_mut().zip(PITCHES.iter()) {
             for ((i, o), v) in s.iter_mut().enumerate().zip(HARMONICS.iter()) {
                 // Get next sample from oscillator.
@@ -101,7 +106,7 @@ fn main() {
     // has finished playing all its queued sounds.
 
     let sink = MySink::new(&stream_handle);
-    let mut audio = Audio::<Ch16, 2>::with_silence(48_000, 48_000 * 5);
+    //let mut audio = Audio::<Ch16, 2>::with_silence(48_000, 48_000 * 5);
    
     //audio.sink()
 

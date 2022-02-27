@@ -5,7 +5,7 @@ use rodio::{Source, Sample};
 use crate::sample::{MonoFrameSmaple, ChanSampleFormat};
 
 
-pub(crate) struct IterSource<I: Iterator> {
+pub struct IterSource<I: Iterator> {
     i: I,
     sample_rate: u32
 }

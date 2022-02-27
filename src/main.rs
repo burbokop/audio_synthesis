@@ -1,16 +1,22 @@
 mod source;
 mod sample;
 mod sink;
+mod processors;
+mod monitor;
 
+use monitor::monitor_once;
+use processors::{DeterioratorExt, IntegratorExt, AdderExt, AmplifierExt};
 use rodio::OutputStream;
 
 use fon::chan::Ch16;
 use fon::Frame;
+use source::IterSource;
 use twang::noise::White;
 use twang::ops::Gain;
 use twang::osc::Sine;
 use twang::Synth;
 
+use crate::processors::sin_generator;
 use crate::sink::PlaybackMonoSink;
 
 
@@ -46,6 +52,7 @@ fn main() {
     }
     // Build synthesis algorithm
     let mut synth = Synth::new(proc, |proc, mut frame: Frame<_, 1>| {
+
         for (s, pitch) in proc.piano.iter_mut().zip(PITCHES.iter()) {
             for ((i, o), v) in s.iter_mut().enumerate().zip(HARMONICS.iter()) {
                 // Get next sample from oscillator.
@@ -58,28 +65,27 @@ fn main() {
     });
 
 
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    //let sink = Sink::try_new(&stream_handle).unwrap();
 
-    // Add a dummy source of the sake of the example.
-    //let source = SineWave::new(440.0).take_duration(Duration::from_secs_f32(10.)).amplify(0.20);
-    //sink.append(source);
+    let mut f = sin_generator(48000 * 10, 0.1).amplified(0.5); // deteriorated(4.);
+    let mut f2 = sin_generator(48000 * 10, 0.025).amplified(0.25); // deteriorated(4.);
 
-    // The sound plays in a separate thread. This call will block the current thread until the sink
-    // has finished playing all its queued sounds.
-
-    let sink = PlaybackMonoSink::new(&stream_handle);
-    //let mut audio = Audio::<Ch16, 2>::with_silence(48_000, 48_000 * 5);
-   
-
-    //audio.sink()
-
-    // Synthesize 5 seconds of audio
-    println!("stream start");
-    synth.stream::<Ch16, _>(sink);
-    println!("stream end");
-
+    let mut f3 = f.add(f2);
 
     
-    //sink.sleep_until_end();
+
+    monitor_once(&mut f3, 48000);
+
+    let source = IterSource::new(f3, 48000);
+
+    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+
+    let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+    sink.append(source);
+    sink.sleep_until_end();
+
+
+    //let sink = PlaybackMonoSink::new(&stream_handle, std::num::NonZeroU32::new(48_000).unwrap(), 48_000 * 10);
+    //println!("stream start");
+    //synth.stream::<Ch16, _>(sink);
+    //println!("stream end");
 }

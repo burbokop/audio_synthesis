@@ -6,18 +6,25 @@ use crate::sample::{MonoFrameSmaple, ChanSampleFormat};
 
 
 pub(crate) struct IterSource<I: Iterator> {
-    i: I
+    i: I,
+    sample_rate: u32
 }
+ 
+impl<I: Iterator> IterSource<I> {
+    pub fn new(i: I, sample_rate: u32) -> Self { Self { i: i, sample_rate: sample_rate } }
+} 
+
 
 impl<T, I: Iterator<Item = T>> Iterator for IterSource<I> {
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> { self.i.next() }
 }
 
+
 impl<T: Sample, I: Iterator<Item = T>> Source for IterSource<I> {
     fn current_frame_len(&self) -> Option<usize> { None }
     fn channels(&self) -> u16 { 1 }
-    fn sample_rate(&self) -> u32 { 48_000 }
+    fn sample_rate(&self) -> u32 { self.sample_rate }
     fn total_duration(&self) -> Option<std::time::Duration> { None }
 }
 
@@ -26,16 +33,18 @@ unsafe impl<T, I: Iterator<Item = T>> Send for IterSource<I> {}
 
 pub(crate) struct MonoFrameSource<'a, Chan: Channel> {
     frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>,
+    sample_rate: u32,
     limit_count: usize
 }
 
 impl<'a, Chan: Channel + ChanSampleFormat> MonoFrameSource<'a, Chan> {
-    pub fn new(frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>, limit_count: usize) -> Self { 
-        MonoFrameSource { frame_iter: frame_iter, limit_count: limit_count } 
+    pub fn new(frame_iter: &'a mut dyn Iterator<Item = Frame<Chan, 1>>, sample_rate: u32, limit_count: usize) -> Self { 
+        MonoFrameSource { frame_iter: frame_iter, sample_rate: sample_rate, limit_count: limit_count } 
     }
 
     pub fn collect_clone(self) -> IterSource<<Vec<f32> as IntoIterator>::IntoIter> {
-        IterSource { i: self.collect::<Vec<_>>().into_iter() }
+        let sr = (&self).sample_rate;
+        IterSource { i: self.collect::<Vec<_>>().into_iter(), sample_rate: sr }
     }
 }
 
@@ -62,9 +71,7 @@ impl<'a, Chan: Channel + ChanSampleFormat> Source for MonoFrameSource<'a, Chan> 
         1 
     }
 
-    fn sample_rate(&self) -> u32 {
-        48_000
-    }
+    fn sample_rate(&self) -> u32 { self.sample_rate }
 
     fn total_duration(&self) -> Option<std::time::Duration> {
         None

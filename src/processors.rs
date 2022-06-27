@@ -12,6 +12,9 @@ pub fn sin_generator(len: usize, freq: f32) -> impl Iterator<Item=f32> {
     (0..len).map(move |x| (x as f32 * freq).sin())
 }
 
+pub fn triangular_generator(len: usize, freq: f32) -> impl Iterator<Item=f32> {
+    (0..len).map(move |x| (x as f32 * freq) % 2. - 1.)
+}
 
 
 

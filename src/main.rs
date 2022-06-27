@@ -5,7 +5,7 @@ mod processors;
 mod monitor;
 
 use monitor::monitor_once;
-use processors::{DeterioratorExt, IntegratorExt, AdderExt, AmplifierExt};
+use processors::{DeterioratorExt, IntegratorExt, AdderExt, AmplifierExt, triangular_generator};
 use rodio::OutputStream;
 
 use fon::chan::Ch16;
@@ -66,16 +66,17 @@ fn main() {
 
 
 
-    let mut f = sin_generator(48000 * 10, 0.1).amplified(0.5); // deteriorated(4.);
-    let mut f2 = sin_generator(48000 * 10, 0.025).amplified(0.25); // deteriorated(4.);
+    let f = sin_generator(48000 * 10, 0.1).amplified(0.5); // deteriorated(4.);
+    let f2 = sin_generator(48000 * 10, 0.025).amplified(0.25); // deteriorated(4.);
 
-    let mut f3 = f.add(f2);
+    //let mut f3 = f.add(f2);
 
+    let mut f3 = triangular_generator(48000 * 10, 0.1);
     
 
     monitor_once(&mut f3, 48000);
 
-    let source = IterSource::new(f3, 48000);
+    let source = IterSource::new(f3.amplified(0.25), 48000);
 
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
 
